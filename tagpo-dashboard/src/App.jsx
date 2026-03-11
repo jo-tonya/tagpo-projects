@@ -1,17 +1,16 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { supabase } from "./lib/supabase";
 
 // ══════════════════════════════════════════
-//  NEW Milestone definitions
-//  Each has: key, label, actionLabel (checkbox text),
-//  deadlineRule: function(campaign) => deadline Date string for turning red
+//  Milestone definitions
 // ══════════════════════════════════════════
 const MS_DEFS = [
-  { k:"esCollection",  label:"ES回収",                  action:"回収済み",            deadlineOffset: (d) => d },                           // 回収日当日
-  { k:"infoRelease",   label:"ユーザー募集開始（情報解禁）", action:"クライアントに中途報告", deadlineOffset: (d) => addDays(d, 5) },              // 開始から5日後
-  { k:"postStart",     label:"投稿開始",                 action:"クライアントに中途報告", deadlineOffset: (d) => addDays(d, -3) },             // 投稿の3日前
-  { k:"postEnd",       label:"投稿期限",                 action:"クライアントに報告",    deadlineOffset: (d) => addDays(d, 3) },              // 3日後
-  { k:"viewComplete",  label:"再生完了",                 action:"クライアントに報告",    deadlineOffset: (d) => addDays(d, 1) },              // 1日後
-  { k:"reportSend",    label:"レポート送付",             action:"レポート送付",          deadlineOffset: (d) => d },                           // 送付日当日
+  { k:"esCollection",  col:"es_collection",  label:"ES回収",                  action:"回収済み",            deadlineOffset: (d) => d },
+  { k:"infoRelease",   col:"info_release",    label:"ユーザー募集開始（情報解禁）", action:"クライアントに中途報告", deadlineOffset: (d) => addDays(d, 5) },
+  { k:"postStart",     col:"post_start",      label:"投稿開始",                 action:"クライアントに中途報告", deadlineOffset: (d) => addDays(d, -3) },
+  { k:"postEnd",       col:"post_end",        label:"投稿期限",                 action:"クライアントに報告",    deadlineOffset: (d) => addDays(d, 3) },
+  { k:"viewComplete",  col:"view_complete",   label:"再生完了",                 action:"クライアントに報告",    deadlineOffset: (d) => addDays(d, 1) },
+  { k:"reportSend",    col:"report_send",     label:"レポート送付",             action:"レポート送付",          deadlineOffset: (d) => d },
 ];
 
 function addDays(dateStr, n) {
@@ -22,22 +21,68 @@ function addDays(dateStr, n) {
 }
 
 // ══════════════════════════════════════════
-//  Seed data
+//  Seed data (used for initial DB population)
 // ══════════════════════════════════════════
 const SEED = [
-  { id:1,  maker:"農心ジャパン",              product:"辛ラーメン トゥーンバ",                  status:"進行中",        type:"既存",  budget:3900000, unitPrice:1.3, avgViews:150, influencers:"",              url:"", esCollection:"2026-01-31", infoRelease:"2026-02-01", postStart:"2026-03-02", postEnd:"2026-03-05", viewComplete:"2026-03-20", reportSend:"2026-04-03", memo:"" },
-  { id:2,  maker:"アイリスオーヤマ",          product:"Genkiパンツ",                            status:"進行中",        type:"既存",  budget:2000000, unitPrice:1.3, avgViews:77,  influencers:"",              url:"", esCollection:"2026-01-13", infoRelease:"2026-01-31", postStart:"2026-02-12", postEnd:"2026-03-15", viewComplete:"2026-03-31", reportSend:"",           memo:"" },
-  { id:3,  maker:"エヌアイエスフーズサービス",product:"ヴェルターズキャラメルキャンディ 70g",    status:"進行中",        type:"既存",  budget:1800000, unitPrice:1.3, avgViews:46,  influencers:"",              url:"", esCollection:"2026-01-31", infoRelease:"",           postStart:"2026-03-02", postEnd:"2026-04-01", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:4,  maker:"ユニリーバ",                product:"ダヴ ビューティセラムボディウォッシュ",  status:"シート回収済み", type:"新商品", budget:3000000, unitPrice:1.3, avgViews:77,  influencers:"",              url:"", esCollection:"2026-03-01", infoRelease:"2026-03-02", postStart:"2026-03-31", postEnd:"2026-04-30", viewComplete:"",           reportSend:"",           memo:"審査: EG" },
-  { id:5,  maker:"株式会社b-ex",              product:"ロレッタ",                              status:"シート回収済み", type:"新商品", budget:1300000, unitPrice:1.3, avgViews:50,  influencers:"",              url:"", esCollection:"2026-03-01", infoRelease:"",           postStart:"2026-03-31", postEnd:"2026-04-20", viewComplete:"",           reportSend:"",           memo:"審査: EG" },
-  { id:6,  maker:"リベルタ",                  product:"QB",                                    status:"シート回収済み", type:"既存",  budget:1000000, unitPrice:1.3, avgViews:31,  influencers:"",              url:"", esCollection:"2026-03-17", infoRelease:"",           postStart:"2026-04-16", postEnd:"2026-06-10", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:7,  maker:"エイクリット",              product:"首枕",                                  status:"未確定",        type:"既存",  budget:1000000, unitPrice:1.3, avgViews:26,  influencers:"",              url:"", esCollection:"2026-02-28", infoRelease:"",           postStart:"2026-03-03", postEnd:"2026-04-30", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:8,  maker:"DHC",                        product:"メタガード",                            status:"未確定",        type:"既存",  budget:1500000, unitPrice:1.3, avgViews:77,  influencers:"15人",          url:"", esCollection:"2026-03-04", infoRelease:"",           postStart:"2026-04-03", postEnd:"2026-05-10", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:9,  maker:"大正製薬",                  product:"ブラックウルフ",                        status:"未確定",        type:"新商品", budget:3000000, unitPrice:1.3, avgViews:105, influencers:"男20-30 女70-80", url:"", esCollection:"2026-04-01", infoRelease:"",           postStart:"2026-05-01", postEnd:"2026-05-30", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:10, maker:"日本薬健",                  product:"いないいないグルテン① ウエルシア",      status:"シート回収済み", type:"新商品", budget:1000000, unitPrice:1.3, avgViews:26,  influencers:"",              url:"", esCollection:"2026-04-01", infoRelease:"2026-03-10", postStart:"2026-05-01", postEnd:"2026-05-30", viewComplete:"",           reportSend:"",           memo:"メーカー" },
-  { id:11, maker:"日本薬健",                  product:"いないいないグルテン② ツルハ",          status:"シート回収済み", type:"新商品", budget:1000000, unitPrice:1.3, avgViews:26,  influencers:"",              url:"", esCollection:"2026-04-25", infoRelease:"",           postStart:"2026-05-25", postEnd:"2026-06-15", viewComplete:"",           reportSend:"",           memo:"" },
-  { id:12, maker:"DHC",                        product:"（値下げ案件）",                        status:"未確定",        type:"既存",  budget:1500000, unitPrice:1.3, avgViews:77,  influencers:"5〜10人",       url:"", esCollection:"2026-04-15", infoRelease:"",           postStart:"2026-05-15", postEnd:"2026-06-10", viewComplete:"",           reportSend:"",           memo:"" },
+  { maker:"農心ジャパン",              product:"辛ラーメン トゥーンバ",                  status:"進行中",        type:"既存",  budget:3900000, unit_price:1.3, avg_views:150, influencers:"",              url:"", es_collection:"2026-01-31", info_release:"2026-02-01", post_start:"2026-03-02", post_end:"2026-03-05", view_complete:"2026-03-20", report_send:"2026-04-03", memo:"" },
+  { maker:"アイリスオーヤマ",          product:"Genkiパンツ",                            status:"進行中",        type:"既存",  budget:2000000, unit_price:1.3, avg_views:77,  influencers:"",              url:"", es_collection:"2026-01-13", info_release:"2026-01-31", post_start:"2026-02-12", post_end:"2026-03-15", view_complete:"2026-03-31", report_send:null,        memo:"" },
+  { maker:"エヌアイエスフーズサービス",product:"ヴェルターズキャラメルキャンディ 70g",    status:"進行中",        type:"既存",  budget:1800000, unit_price:1.3, avg_views:46,  influencers:"",              url:"", es_collection:"2026-01-31", info_release:null,          post_start:"2026-03-02", post_end:"2026-04-01", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"ユニリーバ",                product:"ダヴ ビューティセラムボディウォッシュ",  status:"シート回収済み", type:"新商品", budget:3000000, unit_price:1.3, avg_views:77,  influencers:"",              url:"", es_collection:"2026-03-01", info_release:"2026-03-02", post_start:"2026-03-31", post_end:"2026-04-30", view_complete:null,          report_send:null,        memo:"審査: EG" },
+  { maker:"株式会社b-ex",              product:"ロレッタ",                              status:"シート回収済み", type:"新商品", budget:1300000, unit_price:1.3, avg_views:50,  influencers:"",              url:"", es_collection:"2026-03-01", info_release:null,          post_start:"2026-03-31", post_end:"2026-04-20", view_complete:null,          report_send:null,        memo:"審査: EG" },
+  { maker:"リベルタ",                  product:"QB",                                    status:"シート回収済み", type:"既存",  budget:1000000, unit_price:1.3, avg_views:31,  influencers:"",              url:"", es_collection:"2026-03-17", info_release:null,          post_start:"2026-04-16", post_end:"2026-06-10", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"エイクリット",              product:"首枕",                                  status:"未確定",        type:"既存",  budget:1000000, unit_price:1.3, avg_views:26,  influencers:"",              url:"", es_collection:"2026-02-28", info_release:null,          post_start:"2026-03-03", post_end:"2026-04-30", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"DHC",                        product:"メタガード",                            status:"未確定",        type:"既存",  budget:1500000, unit_price:1.3, avg_views:77,  influencers:"15人",          url:"", es_collection:"2026-03-04", info_release:null,          post_start:"2026-04-03", post_end:"2026-05-10", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"大正製薬",                  product:"ブラックウルフ",                        status:"未確定",        type:"新商品", budget:3000000, unit_price:1.3, avg_views:105, influencers:"男20-30 女70-80", url:"", es_collection:"2026-04-01", info_release:null,          post_start:"2026-05-01", post_end:"2026-05-30", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"日本薬健",                  product:"いないいないグルテン① ウエルシア",      status:"シート回収済み", type:"新商品", budget:1000000, unit_price:1.3, avg_views:26,  influencers:"",              url:"", es_collection:"2026-04-01", info_release:"2026-03-10", post_start:"2026-05-01", post_end:"2026-05-30", view_complete:null,          report_send:null,        memo:"メーカー" },
+  { maker:"日本薬健",                  product:"いないいないグルテン② ツルハ",          status:"シート回収済み", type:"新商品", budget:1000000, unit_price:1.3, avg_views:26,  influencers:"",              url:"", es_collection:"2026-04-25", info_release:null,          post_start:"2026-05-25", post_end:"2026-06-15", view_complete:null,          report_send:null,        memo:"" },
+  { maker:"DHC",                        product:"（値下げ案件）",                        status:"未確定",        type:"既存",  budget:1500000, unit_price:1.3, avg_views:77,  influencers:"5〜10人",       url:"", es_collection:"2026-04-15", info_release:null,          post_start:"2026-05-15", post_end:"2026-06-10", view_complete:null,          report_send:null,        memo:"" },
 ];
+
+// ══════════════════════════════════════════
+//  DB ↔ Frontend mapping helpers
+// ══════════════════════════════════════════
+function dbToFront(row) {
+  return {
+    id: row.id,
+    maker: row.maker || "",
+    product: row.product || "",
+    status: row.status || "未確定",
+    type: row.type || "既存",
+    budget: row.budget,
+    unitPrice: row.unit_price,
+    avgViews: row.avg_views,
+    influencers: row.influencers || "",
+    url: row.url || "",
+    esCollection: row.es_collection || "",
+    infoRelease: row.info_release || "",
+    postStart: row.post_start || "",
+    postEnd: row.post_end || "",
+    viewComplete: row.view_complete || "",
+    reportSend: row.report_send || "",
+    memo: row.memo || "",
+  };
+}
+
+function frontToDb(c) {
+  return {
+    maker: c.maker,
+    product: c.product,
+    status: c.status,
+    type: c.type,
+    budget: c.budget || null,
+    unit_price: c.unitPrice || null,
+    avg_views: c.avgViews || null,
+    influencers: c.influencers || "",
+    url: c.url || "",
+    es_collection: c.esCollection || null,
+    info_release: c.infoRelease || null,
+    post_start: c.postStart || null,
+    post_end: c.postEnd || null,
+    view_complete: c.viewComplete || null,
+    report_send: c.reportSend || null,
+    memo: c.memo || "",
+  };
+}
 
 // ══════════════════════════════════════════
 //  Config
@@ -66,7 +111,6 @@ function calc(c) {
   return { ...c, requiredViews: rv, targetPosts: tp };
 }
 
-// Check if a milestone's ACTION is overdue (not the date itself, but the deadline for the action)
 function isMsOverdue(campaign, msDef, checked) {
   if (checked) return false;
   if (!campaign[msDef.k]) return false;
@@ -74,15 +118,6 @@ function isMsOverdue(campaign, msDef, checked) {
   if (!deadline) return false;
   return dDiff(deadline) < 0;
 }
-
-// ══════════════════════════════════════════
-//  Persistence
-// ══════════════════════════════════════════
-const LS_C = "tagpo_v2_campaigns";
-const LS_M = "tagpo_v2_checks";
-
-function loadC() { try { const r=localStorage.getItem(LS_C); if(r) return JSON.parse(r); } catch{} return SEED; }
-function loadM() { try { const r=localStorage.getItem(LS_M); if(r) return JSON.parse(r); } catch{} return {}; }
 
 // ══════════════════════════════════════════
 //  Styles
@@ -171,240 +206,408 @@ function CampaignForm({ initial, onSave, onClose, title }) {
 //  Main Dashboard
 // ══════════════════════════════════════════
 export default function App() {
-  const [campaigns, setCampaigns] = useState(loadC);
+  const [campaigns, setCampaigns] = useState([]);
   const [filter, setFilter] = useState("all");
   const [sortBy, setSortBy] = useState("postStart");
   const [expandedId, setExpanded] = useState(null);
-  const [checks, setChecks] = useState(loadM);  // { "campId-msKey": true }
+  const [checks, setChecks] = useState({});  // { "campId-msKey": true }
   const [modal, setModal] = useState(null);
   const [memoOpen, setMemoOpen] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const memoTimerRef = useRef({});
 
-  useEffect(()=>{localStorage.setItem(LS_C,JSON.stringify(campaigns));},[campaigns]);
-  useEffect(()=>{localStorage.setItem(LS_M,JSON.stringify(checks));},[checks]);
+  // ── Load data from Supabase on mount ──
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const toggleCheck = useCallback((cid,mk) => {
-    setChecks(p=>{const k=`${cid}-${mk}`; return {...p,[k]:!p[k]};});
-  },[]);
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const updateStatus = useCallback((id,st)=>{
-    setCampaigns(p=>p.map(c=>c.id===id?{...c,status:st}:c));
-  },[]);
+      const { data: campRows, error: campErr } = await supabase
+        .from("campaigns")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-  const addCampaign=(data)=>{
-    const nid=Math.max(...campaigns.map(c=>c.id),0)+1;
-    setCampaigns(p=>[...p,{...data,id:nid}]); setModal(null);
+      if (campErr) throw campErr;
+
+      // If DB is empty, seed it
+      if (!campRows || campRows.length === 0) {
+        const { data: seeded, error: seedErr } = await supabase
+          .from("campaigns")
+          .insert(SEED)
+          .select();
+        if (seedErr) throw seedErr;
+        setCampaigns((seeded || []).map(dbToFront));
+      } else {
+        setCampaigns(campRows.map(dbToFront));
+      }
+
+      // Load milestone checks
+      const { data: checkRows, error: checkErr } = await supabase
+        .from("milestone_checks")
+        .select("*");
+
+      if (checkErr) throw checkErr;
+
+      const checksMap = {};
+      (checkRows || []).forEach(row => {
+        if (row.checked) {
+          checksMap[`${row.campaign_id}-${row.milestone_key}`] = true;
+        }
+      });
+      setChecks(checksMap);
+
+    } catch (err) {
+      console.error("Failed to load data:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Toggle milestone check (optimistic) ──
+  const toggleCheck = useCallback(async (cid, mk) => {
+    const key = `${cid}-${mk}`;
+    const newVal = !checks[key];
+
+    // Optimistic update
+    setChecks(p => ({ ...p, [key]: newVal }));
+
+    try {
+      if (newVal) {
+        await supabase
+          .from("milestone_checks")
+          .upsert(
+            { campaign_id: cid, milestone_key: mk, checked: true, checked_at: new Date().toISOString() },
+            { onConflict: "campaign_id,milestone_key" }
+          );
+      } else {
+        await supabase
+          .from("milestone_checks")
+          .upsert(
+            { campaign_id: cid, milestone_key: mk, checked: false, checked_at: null },
+            { onConflict: "campaign_id,milestone_key" }
+          );
+      }
+    } catch (err) {
+      console.error("Failed to toggle check:", err);
+      // Revert on error
+      setChecks(p => ({ ...p, [key]: !newVal }));
+    }
+  }, [checks]);
+
+  // ── Update status (optimistic) ──
+  const updateStatus = useCallback(async (id, st) => {
+    const prev = campaigns.find(c => c.id === id)?.status;
+    setCampaigns(p => p.map(c => c.id === id ? { ...c, status: st } : c));
+
+    try {
+      const { error } = await supabase.from("campaigns").update({ status: st }).eq("id", id);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      setCampaigns(p => p.map(c => c.id === id ? { ...c, status: prev } : c));
+    }
+  }, [campaigns]);
+
+  // ── Add campaign ──
+  const addCampaign = async (data) => {
+    const tempId = Date.now();
+    const tempCampaign = { ...data, id: tempId };
+
+    // Optimistic
+    setCampaigns(p => [...p, tempCampaign]);
+    setModal(null);
+
+    try {
+      const { data: inserted, error } = await supabase
+        .from("campaigns")
+        .insert(frontToDb(data))
+        .select()
+        .single();
+      if (error) throw error;
+      // Replace temp with real
+      setCampaigns(p => p.map(c => c.id === tempId ? dbToFront(inserted) : c));
+    } catch (err) {
+      console.error("Failed to add campaign:", err);
+      setCampaigns(p => p.filter(c => c.id !== tempId));
+    }
   };
-  const editCampaign=(data)=>{
-    setCampaigns(p=>p.map(c=>c.id===data.id?{...c,...data}:c)); setModal(null);
-  };
-  const deleteCampaign=(id)=>{
-    if(!confirm("この案件を削除しますか？")) return;
-    setCampaigns(p=>p.filter(c=>c.id!==id));
-    if(expandedId===id) setExpanded(null);
+
+  // ── Edit campaign ──
+  const editCampaign = async (data) => {
+    const prev = campaigns.find(c => c.id === data.id);
+    setCampaigns(p => p.map(c => c.id === data.id ? { ...c, ...data } : c));
+    setModal(null);
+
+    try {
+      const { error } = await supabase
+        .from("campaigns")
+        .update(frontToDb(data))
+        .eq("id", data.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to edit campaign:", err);
+      if (prev) setCampaigns(p => p.map(c => c.id === data.id ? prev : c));
+    }
   };
 
-  const enriched = useMemo(()=>campaigns.map(calc),[campaigns]);
+  // ── Delete campaign ──
+  const deleteCampaign = async (id) => {
+    if (!confirm("この案件を削除しますか？")) return;
 
-  const filtered = useMemo(()=>{
-    let list=[...enriched];
-    if(filter!=="all") list=list.filter(c=>c.status===filter);
-    list.sort((a,b)=>{
-      if(sortBy==="postStart"){ const an=a.postStart,bn=b.postStart; if(!an)return 1;if(!bn)return -1; return new Date(an)-new Date(bn); }
-      if(sortBy==="budget") return (b.budget||0)-(a.budget||0);
-      if(sortBy==="maker") return a.maker.localeCompare(b.maker);
+    const prev = campaigns.find(c => c.id === id);
+    setCampaigns(p => p.filter(c => c.id !== id));
+    if (expandedId === id) setExpanded(null);
+
+    try {
+      // Delete checks first, then campaign
+      await supabase.from("milestone_checks").delete().eq("campaign_id", id);
+      const { error } = await supabase.from("campaigns").delete().eq("id", id);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to delete campaign:", err);
+      if (prev) setCampaigns(p => [...p, prev]);
+    }
+  };
+
+  // ── Update memo with debounce ──
+  const updateMemo = useCallback((id, memo) => {
+    setCampaigns(p => p.map(c => c.id === id ? { ...c, memo } : c));
+
+    if (memoTimerRef.current[id]) clearTimeout(memoTimerRef.current[id]);
+    memoTimerRef.current[id] = setTimeout(async () => {
+      try {
+        const { error } = await supabase.from("campaigns").update({ memo }).eq("id", id);
+        if (error) throw error;
+      } catch (err) {
+        console.error("Failed to update memo:", err);
+      }
+    }, 800);
+  }, []);
+
+  const enriched = useMemo(() => campaigns.map(calc), [campaigns]);
+
+  const filtered = useMemo(() => {
+    let list = [...enriched];
+    if (filter !== "all") list = list.filter(c => c.status === filter);
+    list.sort((a, b) => {
+      if (sortBy === "postStart") { const an = a.postStart, bn = b.postStart; if (!an) return 1; if (!bn) return -1; return new Date(an) - new Date(bn); }
+      if (sortBy === "budget") return (b.budget || 0) - (a.budget || 0);
+      if (sortBy === "maker") return a.maker.localeCompare(b.maker);
       return 0;
     });
     return list;
-  },[enriched,filter,sortBy]);
+  }, [enriched, filter, sortBy]);
 
   // ── Stats ──
-  const stats = useMemo(()=>{
+  const stats = useMemo(() => {
     const byStatus = {};
-    S_ORDER.forEach(s=>{byStatus[s]=enriched.filter(c=>c.status===s).length;});
+    S_ORDER.forEach(s => { byStatus[s] = enriched.filter(c => c.status === s).length; });
 
-    let overdueActions=0;
-    enriched.forEach(c=>{
-      MS_DEFS.forEach(m=>{
-        if(isMsOverdue(c,m,checks[`${c.id}-${m.k}`])) overdueActions++;
+    let overdueActions = 0;
+    enriched.forEach(c => {
+      MS_DEFS.forEach(m => {
+        if (isMsOverdue(c, m, checks[`${c.id}-${m.k}`])) overdueActions++;
       });
     });
 
-    // Monthly revenue (grouped by postEnd month)
-    const monthly={};
-    enriched.forEach(c=>{
-      if(!c.postEnd||!c.budget) return;
-      const d=new Date(c.postEnd);
-      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-      monthly[key]=(monthly[key]||0)+c.budget;
+    const monthly = {};
+    enriched.forEach(c => {
+      if (!c.postEnd || !c.budget) return;
+      const d = new Date(c.postEnd);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      monthly[key] = (monthly[key] || 0) + c.budget;
     });
-    const monthKeys=Object.keys(monthly).sort();
+    const monthKeys = Object.keys(monthly).sort();
 
-    return { total:enriched.length, byStatus, overdueActions, totalBudget:enriched.reduce((s,c)=>s+(c.budget||0),0), monthly, monthKeys };
-  },[enriched,checks]);
+    return { total: enriched.length, byStatus, overdueActions, totalBudget: enriched.reduce((s, c) => s + (c.budget || 0), 0), monthly, monthKeys };
+  }, [enriched, checks]);
 
-  // (campOverdue removed — row color is now purely status-based)
+  // ── Loading / Error states ──
+  if (loading) {
+    return (
+      <div style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+          <div style={{ color: "#64748b", fontSize: 14 }}>データを読み込み中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif" }}>
+        <div style={{ textAlign: "center", maxWidth: 400 }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>
+          <div style={{ color: "#ef4444", fontSize: 14, marginBottom: 12 }}>データの読み込みに失敗しました</div>
+          <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 16, wordBreak: "break-all" }}>{error}</div>
+          <button onClick={loadData} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#3b82f6", color: "#fff", fontSize: 14, cursor: "pointer" }}>再読み込み</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{background:"#f8fafc",minHeight:"100vh",padding:"24px",fontFamily:"'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif"}}>
+    <div style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px", fontFamily: "'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif" }}>
 
       {/* ── Header ── */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:12}}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{margin:0,fontSize:28,fontWeight:700,color:"#0f172a",letterSpacing:-.5}}>Tagpo 案件管理ダッシュボード</h1>
-          <p style={{margin:"4px 0 0",fontSize:14,color:"#64748b"}}>{now.getFullYear()}年{now.getMonth()+1}月{now.getDate()}日 現在</p>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#0f172a", letterSpacing: -.5 }}>Tagpo 案件管理ダッシュボード</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#64748b" }}>{now.getFullYear()}年{now.getMonth() + 1}月{now.getDate()}日 現在</p>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e2e8f0",fontSize:13,color:"#475569",background:"#fff",cursor:"pointer"}}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, color: "#475569", background: "#fff", cursor: "pointer" }}>
             <option value="postStart">投稿開始日順</option>
             <option value="budget">予算順</option>
             <option value="maker">メーカー順</option>
           </select>
-          <button onClick={()=>setModal({mode:"add"})} style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#3b82f6",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>＋ 案件追加</button>
+          <button onClick={() => setModal({ mode: "add" })} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#3b82f6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>＋ 案件追加</button>
         </div>
       </div>
 
-      {/* ── KPI: 2 rows ── */}
-      {/* Row 1: Counts */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:10}}>
+      {/* ── KPI ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 10 }}>
         <Kpi l="全案件" v={stats.total} c="#0f172a" />
-        {S_ORDER.map(s=><Kpi key={s} l={s} v={stats.byStatus[s]} c={STATUS_CFG[s].c} />)}
-        <Kpi l="対応遅延" v={stats.overdueActions} c="#ef4444" hi={stats.overdueActions>0} />
+        {S_ORDER.map(s => <Kpi key={s} l={s} v={stats.byStatus[s]} c={STATUS_CFG[s].c} />)}
+        <Kpi l="対応遅延" v={stats.overdueActions} c="#ef4444" hi={stats.overdueActions > 0} />
       </div>
-      {/* Row 2: Budget */}
-      <div style={{display:"grid",gridTemplateColumns:`180px repeat(${Math.max(stats.monthKeys.length,1)},1fr)`,gap:10,marginBottom:24}}>
+      <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${Math.max(stats.monthKeys.length, 1)},1fr)`, gap: 10, marginBottom: 24 }}>
         <Kpi l="総予算" v={fYen(stats.totalBudget)} c="#10b981" sm />
-        {stats.monthKeys.map(k=>{
-          const [y,m]=k.split("-");
+        {stats.monthKeys.map(k => {
+          const [, m] = k.split("-");
           return <Kpi key={k} l={`${Number(m)}月売上`} v={fYen(stats.monthly[k])} c="#6366f1" sm />;
         })}
       </div>
 
       {/* ── Filters ── */}
-      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-        {["all",...S_ORDER].map(s=>{
-          const act=filter===s;
-          const label=s==="all"?"すべて":s;
-          const cnt=s==="all"?enriched.length:enriched.filter(c=>c.status===s).length;
-          return <button key={s} onClick={()=>setFilter(s)} style={{padding:"6px 16px",borderRadius:20,border:act?"2px solid #3b82f6":"1px solid #e2e8f0",background:act?"#eff6ff":"#fff",color:act?"#2563eb":"#64748b",fontWeight:act?600:400,fontSize:13,cursor:"pointer"}}>{label} ({cnt})</button>;
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {["all", ...S_ORDER].map(s => {
+          const act = filter === s;
+          const label = s === "all" ? "すべて" : s;
+          const cnt = s === "all" ? enriched.length : enriched.filter(c => c.status === s).length;
+          return <button key={s} onClick={() => setFilter(s)} style={{ padding: "6px 16px", borderRadius: 20, border: act ? "2px solid #3b82f6" : "1px solid #e2e8f0", background: act ? "#eff6ff" : "#fff", color: act ? "#2563eb" : "#64748b", fontWeight: act ? 600 : 400, fontSize: 13, cursor: "pointer" }}>{label} ({cnt})</button>;
         })}
       </div>
 
       {/* ── Table ── */}
-      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px 80px repeat(6,64px) 40px",padding:"10px 16px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0",fontSize:10,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,alignItems:"end"}}>
+      <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 80px repeat(6,64px) 40px", padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: .5, alignItems: "end" }}>
           <span>メーカー</span><span>商品</span><span>ステータス</span><span>予算</span>
-          {MS_DEFS.map(m=><span key={m.k} style={{textAlign:"center",lineHeight:1.2}}>{m.label.replace("（情報解禁）","").slice(0,5)}</span>)}
+          {MS_DEFS.map(m => <span key={m.k} style={{ textAlign: "center", lineHeight: 1.2 }}>{m.label.replace("（情報解禁）", "").slice(0, 5)}</span>)}
           <span></span>
         </div>
 
-        {filtered.map(c=>{
-          const ex=expandedId===c.id;
-          const sc=STATUS_CFG[c.status]||STATUS_CFG["未確定"];
-          const rbg=sc.row;
-          const rbl=sc.bl;
+        {filtered.map(c => {
+          const ex = expandedId === c.id;
+          const sc = STATUS_CFG[c.status] || STATUS_CFG["未確定"];
+          const rbg = sc.row;
+          const rbl = sc.bl;
 
           return (
             <div key={c.id}>
-              <div onClick={()=>setExpanded(ex?null:c.id)} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px 80px repeat(6,64px) 40px",padding:"10px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:rbg,borderLeft:`4px solid ${rbl}`,alignItems:"center",transition:"background .15s"}}>
-                <span style={{fontWeight:600,fontSize:12,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.maker}</span>
-                <div style={{display:"flex",alignItems:"center",gap:5,overflow:"hidden"}}>
-                  <span style={{fontSize:12,color:"#475569",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.product}</span>
-                  {c.url&&<a href={c.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:10,color:"#3b82f6",flexShrink:0}} title={c.url}>🔗</a>}
+              <div onClick={() => setExpanded(ex ? null : c.id)} style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 80px repeat(6,64px) 40px", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: rbg, borderLeft: `4px solid ${rbl}`, alignItems: "center", transition: "background .15s" }}>
+                <span style={{ fontWeight: 600, fontSize: 12, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.maker}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden" }}>
+                  <span style={{ fontSize: 12, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.product}</span>
+                  {c.url && <a href={c.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: "#3b82f6", flexShrink: 0 }} title={c.url}>🔗</a>}
                 </div>
-                <span><span style={{display:"inline-block",padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,color:sc.c,background:sc.bg}}>{c.status}</span></span>
-                <span style={{fontSize:12,color:"#475569",fontWeight:500}}>{fYen(c.budget)}</span>
+                <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span></span>
+                <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{fYen(c.budget)}</span>
 
-                {/* Milestone mini-indicators */}
-                {MS_DEFS.map(m=>{
-                  const hasDate=!!c[m.k];
-                  const chk=checks[`${c.id}-${m.k}`];
-                  const od=isMsOverdue(c,m,chk);
-                  let bg="#f1f5f9",color="#cbd5e1",icon="—";
-                  if(hasDate&&chk){ bg="#ecfdf5";color="#10b981";icon="✓"; }
-                  else if(hasDate&&od){ bg="#fef2f2";color="#ef4444";icon="!"; }
-                  else if(hasDate){ bg="#f0fdf4";color="#16a34a";icon=fDate(c[m.k]); }
-                  return <span key={m.k} style={{textAlign:"center",fontSize:10,fontWeight:600,color,background:bg,borderRadius:4,padding:"3px 2px",lineHeight:1}}>{icon}</span>;
+                {MS_DEFS.map(m => {
+                  const hasDate = !!c[m.k];
+                  const chk = checks[`${c.id}-${m.k}`];
+                  const od = isMsOverdue(c, m, chk);
+                  let bg = "#f1f5f9", color = "#cbd5e1", icon = "—";
+                  if (hasDate && chk) { bg = "#ecfdf5"; color = "#10b981"; icon = "✓"; }
+                  else if (hasDate && od) { bg = "#fef2f2"; color = "#ef4444"; icon = "!"; }
+                  else if (hasDate) { bg = "#f0fdf4"; color = "#16a34a"; icon = fDate(c[m.k]); }
+                  return <span key={m.k} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color, background: bg, borderRadius: 4, padding: "3px 2px", lineHeight: 1 }}>{icon}</span>;
                 })}
 
-                <span style={{fontSize:14,color:"#94a3b8",textAlign:"center"}}>{ex?"▲":"▼"}</span>
+                <span style={{ fontSize: 14, color: "#94a3b8", textAlign: "center" }}>{ex ? "▲" : "▼"}</span>
               </div>
 
               {/* ── Expanded ── */}
-              {ex&&(
-                <div style={{padding:"16px 20px 20px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+              {ex && (
+                <div style={{ padding: "16px 20px 20px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                     {/* Left: details */}
                     <div>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                        <h4 style={{margin:0,fontSize:13,fontWeight:600,color:"#475569"}}>案件詳細</h4>
-                        <button onClick={()=>setModal({mode:"edit",campaign:c})} style={{padding:"4px 12px",borderRadius:6,border:"1px solid #3b82f6",background:"#eff6ff",color:"#3b82f6",fontSize:12,fontWeight:600,cursor:"pointer"}}>編集</button>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#475569" }}>案件詳細</h4>
+                        <button onClick={() => setModal({ mode: "edit", campaign: c })} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid #3b82f6", background: "#eff6ff", color: "#3b82f6", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>編集</button>
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:13}}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13 }}>
                         <DI l="タイプ" v={c.type} /><DI l="予算" v={fYen(c.budget)} />
-                        <DI l="再生単価" v={c.unitPrice?`¥${c.unitPrice}`:"—"} /><DI l="平均再生回数" v={fNum(c.avgViews)} />
+                        <DI l="再生単価" v={c.unitPrice ? `¥${c.unitPrice}` : "—"} /><DI l="平均再生回数" v={fNum(c.avgViews)} />
                         <DI l="必要再生回数" v={fNum(c.requiredViews)} accent /><DI l="目標投稿数" v={fNum(c.targetPosts)} accent />
-                        <DI l="投稿者数" v={c.influencers||"—"} />
+                        <DI l="投稿者数" v={c.influencers || "—"} />
                       </div>
-                      {c.url&&<div style={{marginTop:8,fontSize:12}}><span style={{color:"#94a3b8",fontWeight:500}}>URL：</span><a href={c.url} target="_blank" rel="noreferrer" style={{color:"#3b82f6",wordBreak:"break-all"}}>{c.url}</a></div>}
+                      {c.url && <div style={{ marginTop: 8, fontSize: 12 }}><span style={{ color: "#94a3b8", fontWeight: 500 }}>URL：</span><a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", wordBreak: "break-all" }}>{c.url}</a></div>}
 
                       {/* Memo */}
-                      <div style={{marginTop:12}}>
-                        <button onClick={()=>setMemoOpen(p=>({...p,[c.id]:!p[c.id]}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:"#64748b",display:"flex",alignItems:"center",gap:4,padding:0}}>
-                          {memoOpen[c.id]?"▼":"▶"} メモ {c.memo?`(${c.memo.length}文字)`:"(なし)"}
+                      <div style={{ marginTop: 12 }}>
+                        <button onClick={() => setMemoOpen(p => ({ ...p, [c.id]: !p[c.id] }))} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#64748b", display: "flex", alignItems: "center", gap: 4, padding: 0 }}>
+                          {memoOpen[c.id] ? "▼" : "▶"} メモ {c.memo ? `(${c.memo.length}文字)` : "(なし)"}
                         </button>
-                        {memoOpen[c.id]&&<textarea value={c.memo||""} onChange={e=>setCampaigns(p=>p.map(x=>x.id===c.id?{...x,memo:e.target.value}:x))} placeholder="案件メモを自由に入力..." style={{...iS,marginTop:6,minHeight:80,resize:"vertical",fontFamily:"inherit",fontSize:13,lineHeight:1.6}} />}
+                        {memoOpen[c.id] && <textarea value={c.memo || ""} onChange={e => updateMemo(c.id, e.target.value)} placeholder="案件メモを自由に入力..." style={{ ...iS, marginTop: 6, minHeight: 80, resize: "vertical", fontFamily: "inherit", fontSize: 13, lineHeight: 1.6 }} />}
                       </div>
 
                       {/* Status */}
-                      <div style={{marginTop:14}}>
-                        <span style={{fontSize:12,fontWeight:600,color:"#64748b"}}>ステータス：</span>
-                        <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                          {S_ORDER.map(st=>(
-                            <button key={st} onClick={()=>updateStatus(c.id,st)} style={{padding:"4px 12px",borderRadius:8,border:c.status===st?`2px solid ${STATUS_CFG[st].c}`:"1px solid #e2e8f0",background:c.status===st?STATUS_CFG[st].bg:"#fff",color:c.status===st?STATUS_CFG[st].c:"#64748b",fontSize:12,fontWeight:c.status===st?600:400,cursor:"pointer"}}>{st}</button>
+                      <div style={{ marginTop: 14 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>ステータス：</span>
+                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                          {S_ORDER.map(st => (
+                            <button key={st} onClick={() => updateStatus(c.id, st)} style={{ padding: "4px 12px", borderRadius: 8, border: c.status === st ? `2px solid ${STATUS_CFG[st].c}` : "1px solid #e2e8f0", background: c.status === st ? STATUS_CFG[st].bg : "#fff", color: c.status === st ? STATUS_CFG[st].c : "#64748b", fontSize: 12, fontWeight: c.status === st ? 600 : 400, cursor: "pointer" }}>{st}</button>
                           ))}
                         </div>
                       </div>
-                      <button onClick={()=>deleteCampaign(c.id)} style={{marginTop:14,padding:"5px 12px",borderRadius:6,border:"1px solid #fecaca",background:"#fff",color:"#ef4444",fontSize:11,cursor:"pointer"}}>削除</button>
+                      <button onClick={() => deleteCampaign(c.id)} style={{ marginTop: 14, padding: "5px 12px", borderRadius: 6, border: "1px solid #fecaca", background: "#fff", color: "#ef4444", fontSize: 11, cursor: "pointer" }}>削除</button>
                     </div>
 
                     {/* Right: milestone checklist */}
                     <div>
-                      <h4 style={{margin:"0 0 12px",fontSize:13,fontWeight:600,color:"#475569"}}>マイルストーン進捗</h4>
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {MS_DEFS.map(m=>{
-                          const hasDate=!!c[m.k];
-                          const chk=checks[`${c.id}-${m.k}`];
-                          const od=isMsOverdue(c,m,chk);
-                          const deadline=m.deadlineOffset(c[m.k]);
-                          const deadlineDiff=dDiff(deadline);
+                      <h4 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#475569" }}>マイルストーン進捗</h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {MS_DEFS.map(m => {
+                          const hasDate = !!c[m.k];
+                          const chk = checks[`${c.id}-${m.k}`];
+                          const od = isMsOverdue(c, m, chk);
+                          const deadline = m.deadlineOffset(c[m.k]);
+                          const deadlineDiff = dDiff(deadline);
 
-                          let bg="#f9fafb",bd="#e5e7eb";
-                          if(chk){bg="#ecfdf5";bd="#86efac";}
-                          else if(od){bg="#fef2f2";bd="#fca5a5";}
-                          else if(hasDate&&deadlineDiff!==null&&deadlineDiff<=3){bg="#fffbeb";bd="#fcd34d";}
+                          let bg = "#f9fafb", bd = "#e5e7eb";
+                          if (chk) { bg = "#ecfdf5"; bd = "#86efac"; }
+                          else if (od) { bg = "#fef2f2"; bd = "#fca5a5"; }
+                          else if (hasDate && deadlineDiff !== null && deadlineDiff <= 3) { bg = "#fffbeb"; bd = "#fcd34d"; }
 
                           return (
-                            <div key={m.k} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:bg,border:`1px solid ${bd}`,opacity:hasDate?1:.5}}>
-                              {/* Checkbox */}
-                              <div onClick={e=>{e.stopPropagation();if(hasDate)toggleCheck(c.id,m.k);}} style={{width:22,height:22,borderRadius:4,flexShrink:0,border:`2px solid ${chk?"#10b981":od?"#ef4444":"#d1d5db"}`,background:chk?"#10b981":"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:hasDate?"pointer":"default"}}>
-                                {chk&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
+                            <div key={m.k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: bg, border: `1px solid ${bd}`, opacity: hasDate ? 1 : .5 }}>
+                              <div onClick={e => { e.stopPropagation(); if (hasDate) toggleCheck(c.id, m.k); }} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, border: `2px solid ${chk ? "#10b981" : od ? "#ef4444" : "#d1d5db"}`, background: chk ? "#10b981" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: hasDate ? "pointer" : "default" }}>
+                                {chk && <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>✓</span>}
                               </div>
-                              {/* Info */}
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                  <span style={{fontSize:13,fontWeight:600,color:chk?"#9ca3af":"#1e293b",textDecoration:chk?"line-through":"none"}}>{m.label}</span>
-                                  {hasDate&&<span style={{fontSize:11,color:"#94a3b8"}}>{fDate(c[m.k])}</span>}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: chk ? "#9ca3af" : "#1e293b", textDecoration: chk ? "line-through" : "none" }}>{m.label}</span>
+                                  {hasDate && <span style={{ fontSize: 11, color: "#94a3b8" }}>{fDate(c[m.k])}</span>}
                                 </div>
-                                <div style={{fontSize:11,marginTop:2,color:chk?"#10b981":od?"#ef4444":"#64748b"}}>
+                                <div style={{ fontSize: 11, marginTop: 2, color: chk ? "#10b981" : od ? "#ef4444" : "#64748b" }}>
                                   {chk ? `✓ ${m.action} 完了`
                                     : !hasDate ? "日付未設定"
                                     : od ? `⚠ ${m.action}が${Math.abs(dDiff(deadline))}日遅延中`
-                                    : deadlineDiff!==null&&deadlineDiff<=3 ? `${m.action} 期限まであと${deadlineDiff}日`
+                                    : deadlineDiff !== null && deadlineDiff <= 3 ? `${m.action} 期限まであと${deadlineDiff}日`
                                     : `${m.action} 期限: ${fDate(deadline)}`}
                                 </div>
                               </div>
-                              {/* Alert icon */}
-                              {od&&!chk&&<span style={{fontSize:20,flexShrink:0}}>🔴</span>}
+                              {od && !chk && <span style={{ fontSize: 20, flexShrink: 0 }}>🔴</span>}
                             </div>
                           );
                         })}
@@ -416,38 +619,38 @@ export default function App() {
             </div>
           );
         })}
-        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:"#94a3b8",fontSize:14}}>該当する案件がありません</div>}
+        {filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>該当する案件がありません</div>}
       </div>
 
       {/* ── Legend ── */}
-      <div style={{marginTop:16,display:"flex",gap:14,flexWrap:"wrap",fontSize:11,color:"#64748b",alignItems:"center"}}>
-        <span style={{fontWeight:600}}>行カラー：</span>
-        {[{l:"未確定",c:"#cbd5e1"},{l:"シート回収済み",c:"#fbbf24"},{l:"進行中",c:"#60a5fa"},{l:"投稿中",c:"#a78bfa"},{l:"完了",c:"#34d399"},{l:"対応遅延あり",c:"#ef4444"}].map(i=>(
-          <span key={i.l} style={{display:"inline-flex",alignItems:"center",gap:3}}><span style={{width:12,height:7,borderRadius:2,background:i.c,display:"inline-block"}} />{i.l}</span>
+      <div style={{ marginTop: 16, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, color: "#64748b", alignItems: "center" }}>
+        <span style={{ fontWeight: 600 }}>行カラー：</span>
+        {[{ l: "未確定", c: "#cbd5e1" }, { l: "シート回収済み", c: "#fbbf24" }, { l: "進行中", c: "#60a5fa" }, { l: "投稿中", c: "#a78bfa" }, { l: "完了", c: "#34d399" }, { l: "対応遅延あり", c: "#ef4444" }].map(i => (
+          <span key={i.l} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 12, height: 7, borderRadius: 2, background: i.c, display: "inline-block" }} />{i.l}</span>
         ))}
-        <span style={{marginLeft:8,fontWeight:600}}>セル：</span>
-        <span style={{display:"inline-flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:2,background:"#ecfdf5",border:"1px solid #86efac",display:"inline-block"}} />完了</span>
-        <span style={{display:"inline-flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:2,background:"#fef2f2",border:"1px solid #fca5a5",display:"inline-block"}} />遅延</span>
-        <span style={{display:"inline-flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:2,background:"#f0fdf4",border:"1px solid #86efac",display:"inline-block"}} />日付あり</span>
+        <span style={{ marginLeft: 8, fontWeight: 600 }}>セル：</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 7, height: 7, borderRadius: 2, background: "#ecfdf5", border: "1px solid #86efac", display: "inline-block" }} />完了</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 7, height: 7, borderRadius: 2, background: "#fef2f2", border: "1px solid #fca5a5", display: "inline-block" }} />遅延</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 7, height: 7, borderRadius: 2, background: "#f0fdf4", border: "1px solid #86efac", display: "inline-block" }} />日付あり</span>
       </div>
 
       {/* Modal */}
-      {modal?.mode==="add"&&<CampaignForm title="新規案件を追加" onSave={addCampaign} onClose={()=>setModal(null)} />}
-      {modal?.mode==="edit"&&<CampaignForm title="案件を編集" initial={modal.campaign} onSave={d=>editCampaign({...modal.campaign,...d})} onClose={()=>setModal(null)} />}
+      {modal?.mode === "add" && <CampaignForm title="新規案件を追加" onSave={addCampaign} onClose={() => setModal(null)} />}
+      {modal?.mode === "edit" && <CampaignForm title="案件を編集" initial={modal.campaign} onSave={d => editCampaign({ ...modal.campaign, ...d })} onClose={() => setModal(null)} />}
     </div>
   );
 }
 
 // ── Small components ──
-function Kpi({l,v,c,hi,sm}) {
-  return <div style={{background:hi?`${c}10`:"#fff",borderRadius:10,padding:"12px 14px",border:hi?`2px solid ${c}`:"1px solid #e2e8f0",boxShadow:hi?`0 0 12px ${c}20`:"0 1px 2px rgba(0,0,0,.04)"}}>
-    <div style={{fontSize:10,color:"#64748b",fontWeight:500,marginBottom:3}}>{l}</div>
-    <div style={{fontSize:sm?16:24,fontWeight:700,color:hi?c:"#0f172a"}}>{v}</div>
+function Kpi({ l, v, c, hi, sm }) {
+  return <div style={{ background: hi ? `${c}10` : "#fff", borderRadius: 10, padding: "12px 14px", border: hi ? `2px solid ${c}` : "1px solid #e2e8f0", boxShadow: hi ? `0 0 12px ${c}20` : "0 1px 2px rgba(0,0,0,.04)" }}>
+    <div style={{ fontSize: 10, color: "#64748b", fontWeight: 500, marginBottom: 3 }}>{l}</div>
+    <div style={{ fontSize: sm ? 16 : 24, fontWeight: 700, color: hi ? c : "#0f172a" }}>{v}</div>
   </div>;
 }
-function DI({l,v,accent}) {
-  return <div style={{padding:"3px 0"}}>
-    <span style={{fontSize:11,color:"#94a3b8",fontWeight:500}}>{l}：</span>
-    <span style={{fontSize:13,color:accent?"#2563eb":"#1e293b",fontWeight:accent?700:500}}>{v||"—"}</span>
+function DI({ l, v, accent }) {
+  return <div style={{ padding: "3px 0" }}>
+    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{l}：</span>
+    <span style={{ fontSize: 13, color: accent ? "#2563eb" : "#1e293b", fontWeight: accent ? 700 : 500 }}>{v || "—"}</span>
   </div>;
 }
