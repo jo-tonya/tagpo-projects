@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd tagpo-dashboard && npm install && npm run build",
+  "outputDirectory": "tagpo-dashboard/dist",
+  "framework": "vite"
+}
