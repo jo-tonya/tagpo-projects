@@ -1,5 +1,11 @@
 {
   "buildCommand": "cd tagpo-dashboard && npm install && npm run build",
   "outputDirectory": "tagpo-dashboard/dist",
-  "framework": "vite"
+  "framework": "vite",
+  "crons": [
+    {
+      "path": "/api/slack-notify",
+      "schedule": "0 1 * * *"
+    }
+  ]
 }
