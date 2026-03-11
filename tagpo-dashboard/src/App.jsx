@@ -129,13 +129,15 @@ const lS = { fontSize:11,fontWeight:600,color:"#64748b",marginBottom:3,display:"
 //  Campaign Form (Add / Edit)
 // ══════════════════════════════════════════
 function CampaignForm({ initial, onSave, onClose, title }) {
-  const [f, setF] = useState({
-    maker:"",product:"",status:"未確定",type:"既存",
-    budget:"",unitPrice:1.3,avgViews:"",influencers:"",url:"",
-    esCollection:"",infoRelease:"",postStart:"",postEnd:"",viewComplete:"",reportSend:"",
-    memo:"",
-    ...initial,
-    budget:initial?.budget??"", unitPrice:initial?.unitPrice??1.3, avgViews:initial?.avgViews??"",
+  const [f, setF] = useState(()=>{
+    const base = {
+      maker:"",product:"",status:"未確定",type:"既存",
+      budget:"",unitPrice:1.3,avgViews:"",influencers:"",url:"",
+      esCollection:"",infoRelease:"",postStart:"",postEnd:"",viewComplete:"",reportSend:"",
+      memo:"",
+      ...initial,
+    };
+    return { ...base, budget:base.budget??"", unitPrice:base.unitPrice??1.3, avgViews:base.avgViews??"" };
   });
   const s=(k,v)=>setF(p=>({...p,[k]:v}));
   const rv=(f.budget&&f.unitPrice)?Math.round(Number(f.budget)/Number(f.unitPrice)):null;
