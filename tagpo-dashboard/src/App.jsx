@@ -503,8 +503,8 @@ export default function App() {
 
       {/* ── Table ── */}
       <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 80px repeat(6,64px) 40px", padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: .5, alignItems: "end" }}>
-          <span>メーカー</span><span>商品</span><span>ステータス</span><span>予算</span>
+        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px repeat(6,64px) 40px", padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: .5, alignItems: "end" }}>
+          <span>メーカー</span><span>商品</span><span>ステータス</span><span>審査</span><span>予算</span>
           {MS_DEFS.map(m => <span key={m.k} style={{ textAlign: "center", lineHeight: 1.2 }}>{m.label.replace("（情報解禁）", "").slice(0, 5)}</span>)}
           <span></span>
         </div>
@@ -517,13 +517,14 @@ export default function App() {
 
           return (
             <div key={c.id}>
-              <div onClick={() => setExpanded(ex ? null : c.id)} style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 80px repeat(6,64px) 40px", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: rbg, borderLeft: `4px solid ${rbl}`, alignItems: "center", transition: "background .15s" }}>
+              <div onClick={() => setExpanded(ex ? null : c.id)} style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px repeat(6,64px) 40px", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: rbg, borderLeft: `4px solid ${rbl}`, alignItems: "center", transition: "background .15s" }}>
                 <span style={{ fontWeight: 600, fontSize: 12, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.maker}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden" }}>
                   <span style={{ fontSize: 12, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.product}</span>
                   {c.url && <a href={c.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: "#3b82f6", flexShrink: 0 }} title={c.url}>🔗</a>}
                 </div>
-                <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span>{c.review && <span style={{ fontSize: 12, color: "#475569", fontWeight: 500, marginLeft: 6 }}>{c.review}</span>}</span>
+                <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span></span>
+                <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{c.review || "—"}</span>
                 <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{fYen(c.budget)}</span>
 
                 {MS_DEFS.map(m => {
