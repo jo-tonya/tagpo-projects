@@ -1,13 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
 // ── Milestone definitions (same logic as frontend) ──
+// k = DB column name (snake_case), fk = frontend milestone_key (camelCase, stored in milestone_checks)
 const MS_DEFS = [
-  { k: "es_collection",  label: "ES回収",                      action: "回収済みチェック",       deadlineOffset: (d) => d },
-  { k: "info_release",   label: "ユーザー募集開始（情報解禁）", action: "クライアントに中途報告", deadlineOffset: (d) => addDays(d, 5) },
-  { k: "post_start",     label: "投稿開始",                     action: "クライアントに中途報告", deadlineOffset: (d) => addDays(d, -3) },
-  { k: "post_end",       label: "投稿期限",                     action: "クライアントに報告",     deadlineOffset: (d) => addDays(d, 3) },
-  { k: "view_complete",  label: "再生完了",                     action: "クライアントに報告",     deadlineOffset: (d) => addDays(d, 1) },
-  { k: "report_send",    label: "レポート送付",                 action: "レポート送付",           deadlineOffset: (d) => d },
+  { k: "es_collection",  fk: "esCollection",  label: "ES回収",                      action: "回収済みチェック",       deadlineOffset: (d) => d },
+  { k: "info_release",   fk: "infoRelease",   label: "ユーザー募集開始（情報解禁）", action: "クライアントに中途報告", deadlineOffset: (d) => addDays(d, 5) },
+  { k: "post_start",     fk: "postStart",     label: "投稿開始",                     action: "クライアントに中途報告", deadlineOffset: (d) => addDays(d, -3) },
+  { k: "post_end",       fk: "postEnd",       label: "投稿期限",                     action: "クライアントに報告",     deadlineOffset: (d) => addDays(d, 3) },
+  { k: "view_complete",  fk: "viewComplete",  label: "再生完了",                     action: "クライアントに報告",     deadlineOffset: (d) => addDays(d, 1) },
+  { k: "report_send",    fk: "reportSend",    label: "レポート送付",                 action: "レポート送付",           deadlineOffset: (d) => d },
 ];
 
 function addDays(dateStr, n) {
@@ -73,7 +74,7 @@ export default async function handler(req, res) {
         const dateVal = camp[ms.k];
         if (!dateVal) return;
 
-        const checked = checksMap[`${camp.id}-${ms.k}`];
+        const checked = checksMap[`${camp.id}-${ms.fk}`];
         if (checked) return;
 
         const deadline = ms.deadlineOffset(dateVal);
