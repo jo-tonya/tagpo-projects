@@ -523,7 +523,7 @@ export default function App() {
                   <span style={{ fontSize: 12, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.product}</span>
                   {c.url && <a href={c.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: "#3b82f6", flexShrink: 0 }} title={c.url}>🔗</a>}
                 </div>
-                <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span>{c.review && <span style={{ fontSize: 10, color: "#64748b", marginLeft: 4 }}>{c.review}</span>}</span>
+                <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span>{c.review && <span style={{ fontSize: 12, color: "#475569", fontWeight: 500, marginLeft: 6 }}>{c.review}</span>}</span>
                 <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{fYen(c.budget)}</span>
 
                 {MS_DEFS.map(m => {
