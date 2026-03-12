@@ -52,6 +52,7 @@ function dbToFront(row) {
     unitPrice: row.unit_price,
     avgViews: row.avg_views,
     influencers: row.influencers || "",
+    review: row.review || "",
     url: row.url || "",
     esCollection: row.es_collection || "",
     infoRelease: row.info_release || "",
@@ -73,6 +74,7 @@ function frontToDb(c) {
     unit_price: c.unitPrice || null,
     avg_views: c.avgViews || null,
     influencers: c.influencers || "",
+    review: c.review || "",
     url: c.url || "",
     es_collection: c.esCollection || null,
     info_release: c.infoRelease || null,
@@ -132,7 +134,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
   const [f, setF] = useState(()=>{
     const base = {
       maker:"",product:"",status:"未確定",type:"既存",
-      budget:"",unitPrice:1.3,avgViews:"",influencers:"",url:"",
+      budget:"",unitPrice:1.3,avgViews:"",influencers:"",review:"",url:"",
       esCollection:"",infoRelease:"",postStart:"",postEnd:"",viewComplete:"",reportSend:"",
       memo:"",
       ...initial,
@@ -162,6 +164,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
           <div><label style={lS}>商品名 *</label><input style={{...iS,border:rb(f.product)}} value={f.product} onChange={e=>s("product",e.target.value)} placeholder="例: ブラックウルフ" /></div>
           <div><label style={lS}>ステータス</label><select style={iS} value={f.status} onChange={e=>s("status",e.target.value)}>{S_ORDER.map(v=><option key={v}>{v}</option>)}</select></div>
           <div><label style={lS}>既存/新商品</label><select style={iS} value={f.type} onChange={e=>s("type",e.target.value)}><option value="既存">既存</option><option value="新商品">新商品</option></select></div>
+          <div><label style={lS}>審査</label><input style={iS} value={f.review} onChange={e=>s("review",e.target.value)} placeholder="例: EG, EG→メーカー" /></div>
         </div>
 
         <div style={{marginBottom:16}}><label style={lS}>商品URL</label><input style={iS} value={f.url} onChange={e=>s("url",e.target.value)} placeholder="https://..." /></div>
@@ -548,8 +551,9 @@ export default function App() {
                         <button onClick={() => setModal({ mode: "edit", campaign: c })} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid #3b82f6", background: "#eff6ff", color: "#3b82f6", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>編集</button>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13 }}>
-                        <DI l="タイプ" v={c.type} /><DI l="予算" v={fYen(c.budget)} />
-                        <DI l="再生単価" v={c.unitPrice ? `¥${c.unitPrice}` : "—"} /><DI l="平均再生回数" v={fNum(c.avgViews)} />
+                        <DI l="タイプ" v={c.type} /><DI l="審査" v={c.review || "—"} />
+                        <DI l="予算" v={fYen(c.budget)} /><DI l="再生単価" v={c.unitPrice ? `¥${c.unitPrice}` : "—"} />
+                        <DI l="平均再生回数" v={fNum(c.avgViews)} />
                         <DI l="必要再生回数" v={fNum(c.requiredViews)} accent /><DI l="目標投稿数" v={fNum(c.targetPosts)} accent />
                         <DI l="投稿者数" v={c.influencers || "—"} />
                       </div>
