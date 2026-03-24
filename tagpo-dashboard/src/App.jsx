@@ -61,6 +61,7 @@ function dbToFront(row) {
     viewComplete: row.view_complete || "",
     reportSend: row.report_send || "",
     memo: row.memo || "",
+    meetingNotes: row.meeting_notes || [],
   };
 }
 
@@ -83,6 +84,7 @@ function frontToDb(c) {
     view_complete: c.viewComplete || null,
     report_send: c.reportSend || null,
     memo: c.memo || "",
+    meeting_notes: c.meetingNotes || [],
   };
 }
 
@@ -136,7 +138,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
       maker:"",product:"",status:"未確定",type:"既存",
       budget:"",unitPrice:1.3,avgViews:"",influencers:"",review:"",url:"",
       esCollection:"",infoRelease:"",postStart:"",postEnd:"",viewComplete:"",reportSend:"",
-      memo:"",
+      memo:"",meetingNotes:[],
       ...initial,
     };
     return { ...base, budget:base.budget??"", unitPrice:base.unitPrice??1.3, avgViews:base.avgViews??"" };
@@ -168,6 +170,19 @@ function CampaignForm({ initial, onSave, onClose, title }) {
         </div>
 
         <div style={{marginBottom:16}}><label style={lS}>商品URL</label><input style={iS} value={f.url} onChange={e=>s("url",e.target.value)} placeholder="https://..." /></div>
+
+        {/* Meeting Notes */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#475569",marginBottom:8}}>Mtg議事録URL</div>
+          {(f.meetingNotes||[]).map((note,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 2fr 32px",gap:8,marginBottom:6,alignItems:"center"}}>
+              <input style={iS} value={note.label} onChange={e=>{const notes=[...(f.meetingNotes||[])];notes[i]={...notes[i],label:e.target.value};s("meetingNotes",notes);}} placeholder={`議事録 ${i+1}`} />
+              <input style={iS} value={note.url} onChange={e=>{const notes=[...(f.meetingNotes||[])];notes[i]={...notes[i],url:e.target.value};s("meetingNotes",notes);}} placeholder="https://..." />
+              <button onClick={()=>{const notes=[...(f.meetingNotes||[])];notes.splice(i,1);s("meetingNotes",notes);}} style={{padding:"6px",borderRadius:6,border:"1px solid #fecaca",background:"#fff",color:"#ef4444",fontSize:12,cursor:"pointer",lineHeight:1}}>✕</button>
+            </div>
+          ))}
+          <button onClick={()=>s("meetingNotes",[...(f.meetingNotes||[]),{url:"",label:""}])} style={{padding:"4px 12px",borderRadius:6,border:"1px dashed #93c5fd",background:"#f0f9ff",color:"#3b82f6",fontSize:12,fontWeight:500,cursor:"pointer"}}>＋ 議事録を追加</button>
+        </div>
 
         {/* A/B/C → X/Y */}
         <div style={{fontSize:12,fontWeight:600,color:"#475569",marginBottom:8}}>予算 &amp; 数値（A/B/C → X/Y 自動計算）</div>
@@ -559,6 +574,20 @@ export default function App() {
                         <DI l="投稿者数" v={c.influencers || "—"} />
                       </div>
                       {c.url && <div style={{ marginTop: 8, fontSize: 12 }}><span style={{ color: "#94a3b8", fontWeight: 500 }}>URL：</span><a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", wordBreak: "break-all" }}>{c.url}</a></div>}
+
+                      {/* Meeting Notes */}
+                      {c.meetingNotes && c.meetingNotes.length > 0 && (
+                        <div style={{ marginTop: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>議事録：</span>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                            {c.meetingNotes.map((note, i) => (
+                              note.url && <a key={i} href={note.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 12, color: "#3b82f6", textDecoration: "none" }}>
+                                {note.label || `議事録 ${i + 1}`} 🔗
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Memo */}
                       <div style={{ marginTop: 12 }}>
