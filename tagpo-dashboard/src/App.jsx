@@ -246,6 +246,7 @@ const MS_ABBR = {
 
 function GanttView({ campaigns, checks }) {
   const [tooltip, setTooltip] = useState(null);
+  const scrollRef = useRef(null);
 
   const { minDate, totalDays, months } = useMemo(() => {
     const allDates = campaigns.flatMap(c => MS_DEFS.map(m => c[m.k]).filter(Boolean));
@@ -282,6 +283,13 @@ function GanttView({ campaigns, checks }) {
   };
 
   const todayOff = dayOff(now.toISOString().slice(0, 10));
+
+  // Auto-scroll to today on mount
+  useEffect(() => {
+    if (scrollRef.current && todayOff !== null && todayOff > 0) {
+      scrollRef.current.scrollLeft = (todayOff - 1) * CELL_W;
+    }
+  }, [todayOff]);
   const chartW = totalDays * CELL_W;
 
   const dateTicks = useMemo(() => {
@@ -300,7 +308,7 @@ function GanttView({ campaigns, checks }) {
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-      <div style={{ overflowX: "auto" }}>
+      <div ref={scrollRef} style={{ overflowX: "auto" }}>
         <div style={{ minWidth: LABEL_W + chartW, position: "relative" }}>
 
           {/* Month header */}
