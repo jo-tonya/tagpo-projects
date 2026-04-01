@@ -227,6 +227,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
 // ══════════════════════════════════════════
 const CELL_W = 30;
 const LABEL_W = 180;
+const ROW_H = 52;
 
 const MS_COLORS = {
   checked: "#10b981",
@@ -234,12 +235,21 @@ const MS_COLORS = {
   normal: "#3b82f6",
 };
 
-function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
+const MS_ABBR = {
+  esCollection: "ES",
+  infoRelease: "募",
+  postStart: "投開",
+  postEnd: "投〆",
+  viewComplete: "再",
+  reportSend: "レ",
+};
+
+function GanttView({ campaigns, checks }) {
   const [tooltip, setTooltip] = useState(null);
 
-  const { minDate, maxDate, totalDays, months } = useMemo(() => {
+  const { minDate, totalDays, months } = useMemo(() => {
     const allDates = campaigns.flatMap(c => MS_DEFS.map(m => c[m.k]).filter(Boolean));
-    if (allDates.length === 0) return { minDate: now, maxDate: now, totalDays: 1, months: [] };
+    if (allDates.length === 0) return { minDate: now, totalDays: 1, months: [] };
 
     const dates = allDates.map(d => new Date(d));
     let mn = new Date(Math.min(...dates));
@@ -251,7 +261,6 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
 
     const total = Math.ceil((mx - mn) / 864e5) + 1;
 
-    // Build month markers
     const ms = [];
     const cur = new Date(mn);
     while (cur <= mx) {
@@ -262,20 +271,19 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
       cur.setDate(1);
     }
 
-    return { minDate: mn, maxDate: mx, totalDays: total, months: ms };
+    return { minDate: mn, totalDays: total, months: ms };
   }, [campaigns]);
 
-  const dayOffset = (dateStr) => {
+  const dayOff = (dateStr) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
     d.setHours(0, 0, 0, 0);
     return Math.ceil((d - minDate) / 864e5);
   };
 
-  const todayOffset = dayOffset(now.toISOString().slice(0, 10));
+  const todayOff = dayOff(now.toISOString().slice(0, 10));
   const chartW = totalDays * CELL_W;
 
-  // Build date header ticks (every 5 days)
   const dateTicks = useMemo(() => {
     const ticks = [];
     for (let i = 0; i < totalDays; i++) {
@@ -288,6 +296,8 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
     return ticks;
   }, [minDate, totalDays]);
 
+  const stickyLabel = { width: LABEL_W, minWidth: LABEL_W, position: "sticky", left: 0, zIndex: 3, background: "inherit" };
+
   return (
     <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
@@ -295,7 +305,7 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
 
           {/* Month header */}
           <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-            <div style={{ width: LABEL_W, minWidth: LABEL_W, padding: "8px 12px", fontSize: 10, fontWeight: 600, color: "#64748b" }}>案件</div>
+            <div style={{ ...stickyLabel, padding: "8px 12px", fontSize: 10, fontWeight: 600, color: "#64748b", background: "#f8fafc" }}>案件</div>
             <div style={{ position: "relative", width: chartW, height: 24 }}>
               {months.map((m, i) => (
                 <div key={i} style={{ position: "absolute", left: m.offset * CELL_W, top: 0, fontSize: 11, fontWeight: 700, color: "#475569", borderLeft: "1px solid #cbd5e1", paddingLeft: 4, height: "100%", display: "flex", alignItems: "center" }}>{m.label}</div>
@@ -305,7 +315,7 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
 
           {/* Date ticks */}
           <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-            <div style={{ width: LABEL_W, minWidth: LABEL_W }} />
+            <div style={{ ...stickyLabel, background: "#f8fafc" }} />
             <div style={{ position: "relative", width: chartW, height: 20 }}>
               {dateTicks.map((t, i) => (
                 <div key={i} style={{ position: "absolute", left: t.offset * CELL_W, top: 0, fontSize: 9, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.label}</div>
@@ -316,46 +326,59 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
           {/* Campaign rows */}
           {campaigns.map(c => {
             const sc = STATUS_CFG[c.status] || STATUS_CFG["未確定"];
-            const psOff = dayOffset(c.postStart);
-            const peOff = dayOffset(c.postEnd);
+            const irOff = dayOff(c.infoRelease);
+            const psOff = dayOff(c.postStart);
+            const peOff = dayOff(c.postEnd);
 
             return (
-              <div key={c.id} style={{ display: "flex", borderBottom: "1px solid #f1f5f9", background: sc.row, borderLeft: `4px solid ${sc.bl}`, cursor: "pointer" }} onClick={() => onExpand(c.id)}>
-                {/* Label */}
-                <div style={{ width: LABEL_W, minWidth: LABEL_W, padding: "10px 8px", overflow: "hidden" }}>
+              <div key={c.id} style={{ display: "flex", borderBottom: "1px solid #f1f5f9", background: sc.row, borderLeft: `4px solid ${sc.bl}` }}>
+                {/* Sticky label */}
+                <div style={{ ...stickyLabel, padding: "10px 8px", overflow: "hidden", background: sc.row, borderRight: "1px solid #e2e8f0" }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.maker}</div>
                   <div style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.product}</div>
                 </div>
 
                 {/* Chart area */}
-                <div style={{ position: "relative", width: chartW, height: 44 }}>
-                  {/* Post period bar */}
-                  {psOff !== null && peOff !== null && (
-                    <div style={{ position: "absolute", left: psOff * CELL_W, top: 16, width: (peOff - psOff) * CELL_W, height: 12, background: `${sc.c}20`, borderRadius: 3, border: `1px solid ${sc.c}40` }} />
+                <div style={{ position: "relative", width: chartW, height: ROW_H }}>
+                  {/* Recruitment period bar: infoRelease → postStart */}
+                  {irOff !== null && psOff !== null && psOff > irOff && (
+                    <div style={{ position: "absolute", left: irOff * CELL_W, top: 14, width: (psOff - irOff) * CELL_W, height: 14, background: "rgba(251,191,36,0.3)", borderRadius: 3 }}>
+                      <span style={{ position: "absolute", top: -10, left: 2, fontSize: 8, color: "#b45309", whiteSpace: "nowrap" }}>募集期間</span>
+                    </div>
                   )}
 
-                  {/* Milestone dots */}
+                  {/* Post period bar: postStart → postEnd */}
+                  {psOff !== null && peOff !== null && peOff > psOff && (
+                    <div style={{ position: "absolute", left: psOff * CELL_W, top: 14, width: (peOff - psOff) * CELL_W, height: 14, background: "rgba(167,139,250,0.3)", borderRadius: 3 }}>
+                      <span style={{ position: "absolute", top: -10, left: 2, fontSize: 8, color: "#6d28d9", whiteSpace: "nowrap" }}>投稿期間</span>
+                    </div>
+                  )}
+
+                  {/* Milestone markers with abbreviation */}
                   {MS_DEFS.map(m => {
-                    const off = dayOffset(c[m.k]);
+                    const off = dayOff(c[m.k]);
                     if (off === null) return null;
                     const chk = checks[`${c.id}-${m.k}`];
                     const od = isMsOverdue(c, m, chk);
                     const color = chk ? MS_COLORS.checked : od ? MS_COLORS.overdue : MS_COLORS.normal;
                     const statusText = chk ? "✓済み" : od ? `${Math.abs(dDiff(m.deadlineOffset(c[m.k])))}日遅延` : "未完了";
+                    const abbr = MS_ABBR[m.k] || "";
 
                     return (
                       <div
                         key={m.k}
-                        style={{ position: "absolute", left: off * CELL_W - 5, top: 12, width: 10, height: 10, borderRadius: "50%", background: color, border: "2px solid #fff", boxShadow: "0 1px 2px rgba(0,0,0,0.15)", cursor: "pointer", zIndex: 2 }}
+                        style={{ position: "absolute", left: off * CELL_W - 10, top: 16, width: 20, height: 20, borderRadius: "50%", background: color, border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", cursor: "pointer", zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}
                         onMouseEnter={(e) => setTooltip({ x: e.clientX, y: e.clientY, text: `${m.label} ${fDate(c[m.k])} ${statusText}` })}
                         onMouseLeave={() => setTooltip(null)}
-                      />
+                      >
+                        <span style={{ fontSize: 7, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{abbr}</span>
+                      </div>
                     );
                   })}
 
                   {/* Today line */}
-                  {todayOffset !== null && todayOffset >= 0 && todayOffset <= totalDays && (
-                    <div style={{ position: "absolute", left: todayOffset * CELL_W, top: 0, width: 0, height: "100%", borderLeft: "2px dashed #ef4444", zIndex: 1, opacity: 0.6 }} />
+                  {todayOff !== null && todayOff >= 0 && todayOff <= totalDays && (
+                    <div style={{ position: "absolute", left: todayOff * CELL_W, top: 0, width: 0, height: "100%", borderLeft: "2px dashed #ef4444", zIndex: 1, opacity: 0.6 }} />
                   )}
                 </div>
               </div>
@@ -374,11 +397,12 @@ function GanttView({ campaigns, checks, onExpand, expandedId, children }) {
       )}
 
       {/* Legend */}
-      <div style={{ padding: "10px 16px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 16, fontSize: 10, color: "#64748b", alignItems: "center" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: MS_COLORS.checked, display: "inline-block" }} />✓済み</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: MS_COLORS.overdue, display: "inline-block" }} />遅延中</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: MS_COLORS.normal, display: "inline-block" }} />未到達</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 20, height: 6, borderRadius: 2, background: "#3b82f620", border: "1px solid #3b82f640", display: "inline-block" }} />投稿期間</span>
+      <div style={{ padding: "10px 16px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 16, fontSize: 10, color: "#64748b", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 12, height: 12, borderRadius: "50%", background: MS_COLORS.checked, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 6, color: "#fff", fontWeight: 700 }}>ES</span>✓済み</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 12, height: 12, borderRadius: "50%", background: MS_COLORS.overdue, display: "inline-block" }} />遅延中</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 12, height: 12, borderRadius: "50%", background: MS_COLORS.normal, display: "inline-block" }} />未到達</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 24, height: 8, borderRadius: 2, background: "rgba(251,191,36,0.3)", display: "inline-block" }} />募集期間</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 24, height: 8, borderRadius: 2, background: "rgba(167,139,250,0.3)", display: "inline-block" }} />投稿期間</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 0, height: 10, borderLeft: "2px dashed #ef4444", display: "inline-block", opacity: 0.6 }} />今日</span>
       </div>
     </div>
@@ -686,7 +710,7 @@ export default function App() {
       </div>
 
       {/* ── Calendar View ── */}
-      {viewMode === "calendar" && <GanttView campaigns={filtered} checks={checks} onExpand={(id) => setExpanded(expandedId === id ? null : id)} expandedId={expandedId} />}
+      {viewMode === "calendar" && <GanttView campaigns={filtered} checks={checks} />}
 
       {/* ── Table ── */}
       {viewMode === "table" && (
