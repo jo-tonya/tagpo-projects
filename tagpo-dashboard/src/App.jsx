@@ -53,6 +53,7 @@ function dbToFront(row) {
     avgViews: row.avg_views,
     influencers: row.influencers || "",
     review: row.review || "",
+    retailer: row.retailer || "",
     url: row.url || "",
     esCollection: row.es_collection || "",
     infoRelease: row.info_release || "",
@@ -76,6 +77,7 @@ function frontToDb(c) {
     avg_views: c.avgViews || null,
     influencers: c.influencers || "",
     review: c.review || "",
+    retailer: c.retailer || "",
     url: c.url || "",
     es_collection: c.esCollection || null,
     info_release: c.infoRelease || null,
@@ -136,7 +138,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
   const [f, setF] = useState(()=>{
     const base = {
       maker:"",product:"",status:"未確定",type:"既存",
-      budget:"",unitPrice:1.3,avgViews:"",influencers:"",review:"",url:"",
+      budget:"",unitPrice:1.3,avgViews:"",influencers:"",review:"",retailer:"",url:"",
       esCollection:"",infoRelease:"",postStart:"",postEnd:"",viewComplete:"",reportSend:"",
       memo:"",meetingNotes:[],
       ...initial,
@@ -167,6 +169,7 @@ function CampaignForm({ initial, onSave, onClose, title }) {
           <div><label style={lS}>ステータス</label><select style={iS} value={f.status} onChange={e=>s("status",e.target.value)}>{S_ORDER.map(v=><option key={v}>{v}</option>)}</select></div>
           <div><label style={lS}>既存/新商品</label><select style={iS} value={f.type} onChange={e=>s("type",e.target.value)}><option value="既存">既存</option><option value="新商品">新商品</option></select></div>
           <div><label style={lS}>審査</label><input style={iS} value={f.review} onChange={e=>s("review",e.target.value)} placeholder="例: EG, EG→メーカー" /></div>
+          <div><label style={lS}>指定小売店</label><input style={iS} value={f.retailer} onChange={e=>s("retailer",e.target.value)} placeholder="例: ウエルシア, ツルハ" /></div>
         </div>
 
         <div style={{marginBottom:16}}><label style={lS}>商品URL</label><input style={iS} value={f.url} onChange={e=>s("url",e.target.value)} placeholder="https://..." /></div>
@@ -723,8 +726,8 @@ export default function App() {
       {/* ── Table ── */}
       {viewMode === "table" && (
       <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px repeat(6,64px) 40px", padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: .5, alignItems: "end" }}>
-          <span>メーカー</span><span>商品</span><span>ステータス</span><span>審査</span><span>予算</span>
+        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px 80px repeat(6,64px) 40px", padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: .5, alignItems: "end" }}>
+          <span>メーカー</span><span>商品</span><span>ステータス</span><span>審査</span><span>小売店</span><span>予算</span>
           {MS_DEFS.map(m => <span key={m.k} style={{ textAlign: "center", lineHeight: 1.2 }}>{m.label.replace("（情報解禁）", "").slice(0, 5)}</span>)}
           <span></span>
         </div>
@@ -737,7 +740,7 @@ export default function App() {
 
           return (
             <div key={c.id}>
-              <div onClick={() => setExpanded(ex ? null : c.id)} style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px repeat(6,64px) 40px", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: rbg, borderLeft: `4px solid ${rbl}`, alignItems: "center", transition: "background .15s" }}>
+              <div onClick={() => setExpanded(ex ? null : c.id)} style={{ display: "grid", gridTemplateColumns: "140px 1fr 110px 60px 80px 80px repeat(6,64px) 40px", padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: rbg, borderLeft: `4px solid ${rbl}`, alignItems: "center", transition: "background .15s" }}>
                 <span style={{ fontWeight: 600, fontSize: 12, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.maker}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden" }}>
                   <span style={{ fontSize: 12, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.product}</span>
@@ -745,6 +748,7 @@ export default function App() {
                 </div>
                 <span><span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, color: sc.c, background: sc.bg }}>{c.status}</span></span>
                 <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{c.review || "—"}</span>
+                <span style={{ fontSize: 11, color: "#475569", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.retailer || "—"}</span>
                 <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>{fYen(c.budget)}</span>
 
                 {MS_DEFS.map(m => {
@@ -773,7 +777,7 @@ export default function App() {
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13 }}>
                         <DI l="タイプ" v={c.type} /><DI l="審査" v={c.review || "—"} />
-                        <DI l="予算" v={fYen(c.budget)} /><DI l="再生単価" v={c.unitPrice ? `¥${c.unitPrice}` : "—"} />
+                        <DI l="指定小売店" v={c.retailer || "—"} /><DI l="予算" v={fYen(c.budget)} /><DI l="再生単価" v={c.unitPrice ? `¥${c.unitPrice}` : "—"} />
                         <DI l="平均再生回数" v={fNum(c.avgViews)} />
                         <DI l="必要再生回数" v={fNum(c.requiredViews)} accent /><DI l="目標投稿数" v={fNum(c.targetPosts)} accent />
                         <DI l="投稿者数" v={c.influencers || "—"} />
